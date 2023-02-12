@@ -20,7 +20,6 @@
 // 7. Join the filtered OfficeActivity data with the EmailEvents data that has at least one attachment and is not an outbound email
 // 8. Extract the mutual (InternetMessageId) from the EmailEvents data
 // 9. Project relevant columns from the joined data
-
 OfficeActivity
 | where RecordType contains "Exchange"
 | where Item contains ".one"
