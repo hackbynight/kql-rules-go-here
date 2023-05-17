@@ -1,5 +1,48 @@
 # kql-rules-go-here
 
+OfficeHome
+
+```kql
+// Sentinel KQL rule: Strange User Behavior; OneNote Files as Attachments
+// Author: @hackbynight
+// Date: May 16 2023
+// Description: 
+// This rule first collects OfficeHome sign-ins from the past 14 days. In the main query, 
+// it selects only the alerts where the AppDisplayName is "OfficeHome". Then it performs 
+// an anti join with the OfficeHomeSignIns table, which effectively filters out users who 
+// have signed in with OfficeHome in the last 14 days. The result should be a table of alerts 
+// for users who are signing into OfficeHome for the first time in the past 14 days.
+
+let timeframe_start = ago(14d);
+let finder = (workspace('###').SigninLogs
+    | where UserPrincipalName contains "@"
+    | summarize UserId = any(UserId) by UserPrincipalName
+    | project UserId, UserPrincipalName);
+let App1 = workspace('###').SigninLogs
+    | summarize AppDisplayName = any(AppDisplayName) by Id
+    | project Id, AppDisplayName;
+let OfficeHomeSignIns = workspace('###').SigninLogs
+    | where AppDisplayName == "OfficeHome"
+    | where TimeGenerated >= timeframe_start
+    | summarize by UserPrincipalName;
+workspace('###').SigninLogs
+| where TimeGenerated > timeframe_start
+| join kind=leftouter finder on $left.UserId == $right.UserId
+| join kind=leftouter App1 on $left.Id == $right.Id
+| where AppDisplayName == "OfficeHome"
+| join kind=anti OfficeHomeSignIns on $left.UserPrincipalName == $right.UserPrincipalName
+| summarize
+    TimeGenerated = any(TimeGenerated),
+    UserPrincipalName = any(UserPrincipalName),
+    AppDisplayName = any(AppDisplayName),
+    UserAgent = any(UserAgent) 
+    by Id
+```
+
+
+
+OneNote
+
 ```kql
 // Sentinel KQL rule: Strange User Behavior; OneNote Files as Attachments
 // Author: @hackbynight
@@ -20,6 +63,7 @@
 // 7. Join the filtered OfficeActivity data with the EmailEvents data that has at least one attachment and is not an outbound email
 // 8. Extract the mutual (InternetMessageId) from the EmailEvents data
 // 9. Project relevant columns from the joined data
+
 OfficeActivity
 | where RecordType contains "Exchange"
 | where Item contains ".one"
