@@ -3,7 +3,7 @@
 OfficeHome
 
 ```kql
-// Sentinel KQL rule: Strange User Behavior; OneNote Files as Attachments
+// Sentinel KQL rule: Strange User Behavior; OfficeHome sign-ons upon corporate environment AAD
 // Author: @hackbynight
 // Date: May 16 2023
 // Description: 
