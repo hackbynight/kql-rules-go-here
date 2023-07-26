@@ -90,3 +90,39 @@ OfficeActivity
 //
 //
 ```
+
+``` KQL
+// Title: Threat Intelligence Indicator Match with Azure Activities
+// ID: 
+// Description: This alert identifies a match in the AzureActivity table from any IP IOC retrieved from Threat Intelligence. The severity of the alert is High because a hit would imply a potential malicious activity.
+// Severity: High
+// Tactics: Initial Access
+// Techniques: T1190 - Exploit Public-Facing Application
+// Last modified date: 2023-07-12
+// QueryFrequency: PT1H
+// QueryPeriod: PT14D
+// GroupingConfiguration-enabled: True
+// Group-lookbackDuration: PT1H
+
+let dt_lookBack = 1d;
+let ioc_lookBack = 14d;
+let min_ConfidenceScore = 75; // Adjust as needed
+workspace('workspace_id').ThreatIntelligenceIndicator
+| where TimeGenerated >= ago(ioc_lookBack) and ExpirationDateTime > now()
+| where Active == true and ConfidenceScore >= min_ConfidenceScore
+| summarize LatestIndicatorTime = arg_max(TimeGenerated, *) by IndicatorId
+| extend IPIOC = iff(isnotempty(NetworkIP),NetworkIP,"")
+| extend IPIOC = iff(isnotempty(NetworkSourceIP),NetworkSourceIP,IPIOC)
+| extend IPIOC = iff(isnotempty(NetworkDestinationIP),NetworkDestinationIP,IPIOC)
+| where isnotempty(IPIOC)
+| join kind=innerunique (
+workspace('workspace_id').AzureActivity
+| where TimeGenerated >= ago(dt_lookBack) and isnotempty(CallerIpAddress)
+| extend AzureActivity_TimeGenerated = TimeGenerated
+) on $left.IPIOC == $right.CallerIpAddress
+| where AzureActivity_TimeGenerated < ExpirationDateTime
+| summarize AzureActivity_TimeGenerated = arg_max(AzureActivity_TimeGenerated, *) by IndicatorId, OperationName
+| project AzureActivity_TimeGenerated, Description, ActivityGroupNames, IndicatorId, ThreatType, Url, ExpirationDateTime, ConfidenceScore, OperationName, Caller, CallerIpAddress, Resource, SubscriptionId, ResourceProvider
+| extend timestamp = AzureActivity_TimeGenerated
+
+```
